@@ -116,6 +116,52 @@ var isRequired = upgrader.IsUpgradeRequired();
 
 <p>Or, you can implement your own <code>IJournal</code> to track the scripts yourself. Most parts of DbUp are exensible in this way; just browse the API to see what it can do.</p> 
 
+
+<h2>Code-based scripts</h2>
+<p>Sometimes migrations may require more logic than is easy or possible to perform in SQL alone. Code-based scripts provide the facility to generate SQL in code, with an open database connection and a <code>System.Data.IDbCommand</code> factory provided.</p>
+
+<p>The code-based migration is a class that implements the <code>IScript</code> interface. The <code>ProvideScript()</code> method is called when it is the migration's turn to be executed, so the scripts before it have already been executed.</p>
+
+<p>This example shows a query being called and the results used to build up an arbitrary set of <code>INSERT</code> statements:</p>
+
+<pre><code>public class Script0005ComplexUpdate : IScript
+{
+    public string ProvideScript(Func&lt;IDbCommand&gt; commandFactory)
+    {
+        var cmd = sqlConnectionString.CreateCommand();
+        cmd.CommandText = "Select * from SomeTable";
+        var scriptBuilder = new StringBuilder();
+
+        using (var reader = cmd.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                scriptBuilder.AppendLine(string.Format("insert into AnotherTable values ({0})", reader.GetString(0)));
+            }
+        }
+
+        return scriptBuilder;
+    }
+}
+</code></pre>
+
+<p>Of course, the command factory can be used for more than just queries. The entire migration itself can be performed in code:</p>
+
+<pre><code>public class Script0006UpdateInCode : IScript
+{
+	public string ProvideScript(Func&lt;IDbCommand&gt; commandFactory)
+	{
+		var command = commandFactory();
+
+		command.CommandText = "CREATE TABLE [dbo].[Foo]( [Name] NVARCHAR(MAX) NOT NULL )";
+		command.ExecuteNonQuery();
+
+		return "";
+	}
+}
+</code></pre>
+
+
 <h2>Supported databases</h2>
 
 <p>DbUp supports:</p>
@@ -128,6 +174,7 @@ var isRequired = upgrader.IsUpgradeRequired();
 <p>
   If you're interested in adding support for other databases we'd love to hear from you. 
 </p>
+
 
 <h2>Resources</h2>
 
